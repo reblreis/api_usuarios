@@ -1,4 +1,3 @@
-
 package br.com.cotiinformatica.domain.services;
 
 import java.util.Date;
@@ -7,8 +6,10 @@ import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.javafaker.Faker;
 
+import br.com.cotiinformatica.application.dtos.EmailMessageDTO;
 import br.com.cotiinformatica.application.dtos.GetUsuarioDTO;
 import br.com.cotiinformatica.application.dtos.PostAutenticarDTO;
 import br.com.cotiinformatica.application.dtos.PostCriarContaDTO;
@@ -18,9 +19,9 @@ import br.com.cotiinformatica.application.dtos.ResponseCriarContaDTO;
 import br.com.cotiinformatica.application.dtos.ResponseRecuperarSenhaDTO;
 import br.com.cotiinformatica.domain.interfaces.IUsuarioDomainService;
 import br.com.cotiinformatica.domain.models.Usuario;
-import br.com.cotiinformatica.infra.components.EmailComponent;
 import br.com.cotiinformatica.infra.components.MD5Component;
 import br.com.cotiinformatica.infra.components.TokenComponent;
+import br.com.cotiinformatica.infra.producers.MessageProducer;
 import br.com.cotiinformatica.infra.repositories.IUsuarioRepository;
 
 @Service
@@ -36,7 +37,10 @@ public class UsuarioDomainService implements IUsuarioDomainService {
 	private TokenComponent tokenComponent;
 
 	@Autowired // injeção de dependência
-	private EmailComponent emailComponent;
+	private MessageProducer messageProducer;
+
+	@Autowired // injeção de dependência
+	private ObjectMapper objectMapper;
 
 	@Override
 	public ResponseAutenticarDTO autenticar(PostAutenticarDTO dto) {
@@ -86,6 +90,22 @@ public class UsuarioDomainService implements IUsuarioDomainService {
 		// gravando no banco de dados
 		usuarioRepository.save(usuario);
 
+		// enviando mensagem de boas vindas
+		EmailMessageDTO emailMessageDTO = new EmailMessageDTO();
+		emailMessageDTO.setEmailTo(usuario.getEmail());
+		emailMessageDTO.setSubject("Seja bem vindo a API de Usuários - COTI Informática");
+		emailMessageDTO.setBody(
+				"<div>" + "<p>Parabéns, " + usuario.getNome() + ". Sua conta de usuário foi criada com sucesso.</p>"
+						+ "<p>Utilize o email e senha cadastrados para acessar sua conta."
+						+ "<p>Att,<br/>Equipe COTI Informática</p>");
+
+		// enviando a mensagem para a fila..
+		try {
+			messageProducer.send(objectMapper.writeValueAsString(emailMessageDTO));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
 		ResponseCriarContaDTO response = new ResponseCriarContaDTO();
 		response.setStatus(201);
 		response.setMensagem("Usuário cadastrado com sucesso");
@@ -106,16 +126,22 @@ public class UsuarioDomainService implements IUsuarioDomainService {
 			throw new IllegalArgumentException("Email não encontrado. Usuário inválido.");
 
 		// gerar uma nova senha para o usuário
-		String novaSenha = new Faker().internet().password(8, 20, true);
+		String novaSenha = new Faker().internet().password(8, 10, true);
 
-		// escrevendo o email para o usuário
-		String subject = "Recuperação de senha - API Usuários";
-		String body = "<div>" + "<p>Olá, " + usuario.getNome() + "</p>"
-				+ "<p>Uma nova senha foi gerada com sucesso!</p>" + "<p>Acesse o sistema com a senha: <strong>"
-				+ novaSenha + "</strong></p>" + "<p>Att,</p>" + "<p>Equipe API Usuários</p>";
+		// enviando mensagem de recuperação de senha
+		EmailMessageDTO emailMessageDTO = new EmailMessageDTO();
+		emailMessageDTO.setEmailTo(usuario.getEmail());
+		emailMessageDTO.setSubject("Recuperação de Senha (API de Usuários) - COTI Informática");
+		emailMessageDTO.setBody("<div>" + "<p>Parabéns, " + usuario.getNome()
+				+ ". Uma nova senha foi gerada com sucesso.</p>" + "<p>Utilize a senha <strong>" + novaSenha
+				+ "</strong> para acessar sua conta." + "<p>Att,<br/>Equipe COTI Informática</p>");
 
-		// enviando o email
-		emailComponent.sendMessage(usuario.getEmail(), subject, body);
+		// enviando a mensagem para a fila..
+		try {
+			messageProducer.send(objectMapper.writeValueAsString(emailMessageDTO));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 
 		// atualizando a senha do usuário no banco de dados
 		usuario.setSenha(md5Component.encrypt(novaSenha));

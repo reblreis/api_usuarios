@@ -5,6 +5,7 @@ import javax.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -22,6 +23,7 @@ public class RecuperarSenhaController {
 	@Autowired
 	private IUsuarioDomainService usuarioDomainService;
 
+	@CrossOrigin(origins = "*")
 	@ApiOperation("ENDPOINT para recuperação da senha de acesso do usuário.")
 	@PostMapping("/api/recuperar-senha")
 	public ResponseEntity<ResponseRecuperarSenhaDTO> post(@Valid @RequestBody PostRecuperarSenhaDTO dto) {

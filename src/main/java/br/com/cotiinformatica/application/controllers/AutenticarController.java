@@ -5,6 +5,7 @@ import javax.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -22,6 +23,7 @@ public class AutenticarController {
 	@Autowired // injeção de dependência
 	private IUsuarioDomainService usuarioDomainService;
 
+	@CrossOrigin(origins = "*")
 	@ApiOperation("ENDPOINT para autenticação de usuários e obtenção de Token.")
 	@PostMapping("/api/autenticar")
 	public ResponseEntity<ResponseAutenticarDTO> post(@Valid @RequestBody PostAutenticarDTO dto) {
